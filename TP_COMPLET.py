@@ -20,6 +20,7 @@ from sklearn import metrics
 from sklearn import cluster
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.metrics.pairwise import manhattan_distances
+from sklearn.neighbors import NearestNeighbors
 
 
 """ Data preparation """
@@ -36,9 +37,11 @@ def create_data_mystere(name):
     return data
 
 
-data=create_data("donut1")
-f0=[f[0] for f in data]
-f1=[f[1] for f in data]
+test=create_data("donut1")
+f0=[f[0] for f in test]
+f1=[f[1] for f in test]
+
+
 """
 plt.scatter(f0, f1, s=8)
 plt.title("Donnees initiales")
@@ -118,7 +121,7 @@ def k_medoids(data, dataname, dist="euc"):
     return best_labels, best_k, best_score, runtime
 
 """ K-Means VS K-Medoids Comparison """
-def calc_rand_score(k):
+def calc_rand_score(data, k):
     model=cluster.KMeans(n_clusters=k, init='k-means++')
     model.fit(data)
     labels_kmeans = model.labels_
@@ -132,7 +135,7 @@ def calc_rand_score(k):
     
     
 """ Dendrogramme """
-def create_dendro():
+def create_dendro(data):
     print ( "Dendrogramme 'single' donnees initiales")
     linked_mat = shc.linkage(data, 'single')
     plt.figure(figsize = (12, 12))
@@ -229,7 +232,54 @@ def hierachical(data, dataname, mode):
         
     return best_labels_global, best_k_global, best_score_global, runtime_global, best_dist_global, best_linkage
 
+""" DBSCAN """
+def plot_k_nearest_neighbors(k, data, dataname):
+    #Distances k plus proches voisins
+    # Donnees dans X
+    neigh = NearestNeighbors ( n_neighbors = k )
+    neigh.fit(data)
+    distances,indices = neigh.kneighbors(data)
+    # retirer le point " origine "
+    newDistances = np.asarray( [np.average(distances[i][1:]) for i in range (0,distances.shape[0])])
+    trie = np.sort(newDistances)
+    title=("Plus proches voisins(" + str(k) + ") pour " + dataname)
+    plt.title(title)
+    plt.plot(trie);
+    plt.show()
 
+
+def dbscan(data, dataname, min_samples, e_min, e_step, e_nb): 
+    max_score = -1
+    best_eps = 0
+    best_labels=[]
+    best_k = 0
+    runtime = 0
+    
+    for e in range(0, e_nb):
+        eps=e*e_step+e_min
+        tps1=time.time()
+        model = cluster.DBSCAN(eps=eps,  min_samples=min_samples, metric='euclidean')
+        model = model.fit(data)
+        tps2=time.time()
+        runtime = round ((tps2-tps1) * 1000, 2)
+        labels = model.labels_        
+        
+        silhouette_score= metrics.silhouette_score(data, labels, metric='euclidean')
+        if(silhouette_score>max_score):
+            max_score=silhouette_score
+            best_eps=eps
+            best_labels=labels
+            best_k = model.n_features_in_
+            
+    print(dataname," : ", "Le meilleur epsilon est :", best_eps,"avec ", best_k," clusters et un score de", max_score)
+    f0=[f[0] for f in data]
+    f1=[f[1] for f in data]
+    plt.scatter(f0, f1, c = best_labels, s=8)
+    title="Resultat du clustering avec DBSCAN", best_eps
+    plt.title(title)
+    plt.show()
+    return best_labels, best_k, max_score, runtime, best_eps
+    
      
 """ Exploitation """
 
@@ -317,5 +367,42 @@ def agglo_df():
 # print("\n------ End of DataFrame for Agglo ------\n")     
     
     
+#DBSCAN  
+
+plot_k_nearest_neighbors(5, create_data("triangle1"),"triangle1")
+plot_k_nearest_neighbors(5, create_data("diamond9"),"diamond9")
+plot_k_nearest_neighbors(5, create_data("xclara"),"xclara")
+plot_k_nearest_neighbors(5, create_data("donut1"),"donut1")
+plot_k_nearest_neighbors(5, create_data("xor"),"xor")
+
+
+def dbscan_df(): 
+    dataframe_dbscan = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
+    
+    #format : [dataset, min_samples, e_min, e_step, e_nb]
+    examples_dbscan = [["triangle1",0.5,0.1,10],
+                       ["diamond9",0.08,0.01,6],
+                       ["xclara",1.5,0.1,10],
+                       ["donut1",0.002,0.0005,4],
+                       ["xor",0.04,0.005,8]]
     
     
+    for e in examples_dbscan : 
+        data=create_data(e[0])
+        f0=[f[0] for f in data]
+        f1=[f[1] for f in data]
+    
+        plt.scatter(f0, f1, s=8)
+        plt.title("Donnees initiales")
+        plt.show()
+        
+        l,k,s,t,eps = dbscan(data, e[0], 5, e[1], e[2], e[3])
+        
+        new_entry = {"Example":e[0], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+        """
+        Le k ici est pas bon, il faut récupérer le bon nombre de cluster
+        """
+        dataframe_dbscan = dataframe_dbscan.append(new_entry, ignore_index=True)
+    return dataframe_dbscan
+
+dataframe_dbscan = dbscan_df()
