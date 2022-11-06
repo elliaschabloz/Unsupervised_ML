@@ -35,72 +35,87 @@ def create_data_mystere(name):
     data=databrut.to_numpy()
     return data
 
+
 data=create_data("donut1")
 f0=[f[0] for f in data]
 f1=[f[1] for f in data]
-
+"""
 plt.scatter(f0, f1, s=8)
 plt.title("Donnees initiales")
 plt.show()
-
+"""
 
 """ K-Means """
-def k_means_davies(data):
-    labels_kmeans=[]
+"""
+Indice de Davies-Bouldin : Plus l'indice est faible, meilleure est la qualité du clustering'
+"""
+def k_means_davies(data, dataname):
+    best_labels=[]
     min_davies_score = 9999
     min_davies_k = 0
     for k in range(2,10):
-        print("k=",k)
         tps1=time.time()
         model=cluster.KMeans(n_clusters=k, init='k-means++')
         model.fit(data)
         tps2 = time.time()
+        runtime = round((tps2-tps1) * 1000, 2)
         labels = model.labels_
-        #labels_kmeans.append(labels)
         davies_score = metrics.davies_bouldin_score(data, labels)
         if(davies_score<min_davies_score):
             min_davies_score=davies_score
             min_davies_k=k
-        iteration = model.n_iter_
-        plt.scatter(f0, f1, c=labels, s=8)
-        plt.title("Donnees apres clustering Kmeans")
-        plt.show()
-        print("nb clusters=",k,", nb iter =" , iteration, "score=", davies_score,", runtime = ", round ((tps2-tps1) * 1000, 2), " ms")
-        labels_kmeans = labels
+            best_labels = labels
+        #iteration = model.n_iter_
         
-    print("Le meilleur nombre de clusters est :", min_davies_k, "avec un score de", min_davies_score)
-    return labels_kmeans
+        #print("nb clusters=",k,", nb iter =" , iteration, "score=", davies_score,", runtime = ", runtime, " ms")
+        
+    f0=[f[0] for f in data]
+    f1=[f[1] for f in data]    
+    plt.scatter(f0, f1, c=best_labels, s=8)
+    plt.title("Donnees apres clustering Kmeans")
+    plt.show()    
+    print(dataname," : ","Le meilleur nombre de clusters est :", min_davies_k, "avec un score de", min_davies_score)
+    return best_labels, min_davies_k, min_davies_score, runtime
 
 
 """ K-Medoids """
-def k_medoids(data):
-    max_score = -1
-    max_k = 0
+"""
+Silhouette Score : Varie de -1 à 1 ; Plus le score est proche de 1, meilleur est le cluster
+dist can be : "euc" or "man" for euclidean or manhattan
+"""
+def k_medoids(data, dataname, dist="euc"):
+    best_score = -1
+    best_k = 0
+    best_labels = []
     for k in range(2,10):
-        print("k=",k)
         tps1 = time.time()
-        distmatrix=euclidean_distances(data)
+        
+        if (dist == "euc") :
+            distmatrix=euclidean_distances(data)
+        elif (dist == "man") :
+            distmatrix=manhattan_distances(data)
+            
         fp=kmedoids.fasterpam(distmatrix,k)
         tps2=time.time()
-        iter_kmed = fp.n_iter
+        runtime = round ((tps2-tps1) * 1000, 2)
+        #iter_kmed = fp.n_iter
         labels_kmed = fp.labels
             
-        silhouette_score= metrics.silhouette_score(data, labels_kmed, metric='euclidean')
-        silhouette_score_man = metrics.silhouette_score(data, labels_kmed, metric='manhattan')
-        if(silhouette_score>max_score):
-            max_score=silhouette_score
-            max_k=k
+        silhouette_score = metrics.silhouette_score(data, labels_kmed, metric='euclidean')
+        if(silhouette_score>best_score):
+            best_score = silhouette_score
+            best_k = k
+            best_labels = labels_kmed
         
-            
-        #print("Loss with FasterPAM : " , fp.loss)
-        plt.scatter(f0 , f1 , c=labels_kmed , s =8)
-        plt.title(" Donnees apres clustering KMedoids " )
-        plt.show()
-        print(" nb clusters=" ,k , " , nb iter=" , iter_kmed , "score euclidean= ", silhouette_score,"score manhattan= ", silhouette_score_man," runtime = " , round ((tps2 - tps1) * 1000,2), " ms")
-       
+        #print(" nb clusters=" ,k , " , nb iter=" , iter_kmed , "score euclidean= ", silhouette_score, " runtime = " , round ((tps2 - tps1) * 1000,2), " ms")
     
-    print("Le meilleur nombre de clusters est :", max_k, "avec un score de", max_score)
-    
+    f0=[f[0] for f in data]
+    f1=[f[1] for f in data]   
+    plt.scatter(f0 , f1 , c=best_labels , s=8)
+    plt.title(" Donnees apres clustering KMedoids " )
+    plt.show()
+    print(dataname," : ","Le meilleur nombre de clusters est :", best_k, "avec un score de", best_score)
+    return best_labels, best_k, best_score, runtime
 
 """ K-Means VS K-Medoids Comparison """
 def calc_rand_score(k):
@@ -198,3 +213,49 @@ def hierachical(mode):
                 #print("iter=",itera," nb clusters = " ,k , " , nb feuilles = " , leaves , " runtime = ", round(( tps2 - tps1 ) * 1000 , 2 ) ," ms " )
             
             print("Le meilleur k est :", best_k, "avec un score de", max_score)
+            
+""" Exploitation """
+
+#K-means 
+def kmeans_df(): 
+    dataframe_kmeans = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime"])
+    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
+    
+    for e in examples : 
+        data=create_data(e)
+        f0=[f[0] for f in data]
+        f1=[f[1] for f in data]
+    
+        plt.scatter(f0, f1, s=8)
+        plt.title("Donnees initiales")
+        plt.show()
+        l,k,s,t = k_means_davies(data, e)
+        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime":t}
+        dataframe_kmeans = dataframe_kmeans.append(new_entry, ignore_index=True)
+    return dataframe_kmeans
+#print("------ Running DataFrame for K-Means ------\n")
+#dataframe_kmeans = kmeans_df()
+#print("------ End of DataFrame for K-Means ------\n") 
+
+
+#K-medoids 
+def kmedoids_df():
+    
+    dataframe_kmedoids = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime"])
+    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
+    
+    for e in examples : 
+        data=create_data(e)
+        f0=[f[0] for f in data]
+        f1=[f[1] for f in data]
+    
+        plt.scatter(f0, f1, s=8)
+        plt.title("Donnees initiales")
+        plt.show()
+        l,k,s,t = k_medoids(data, e)
+        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime":t}
+        dataframe_kmedoids = dataframe_kmedoids.append(new_entry, ignore_index=True)
+    return dataframe_kmedoids
+print("------ Running DataFrame for K-Medoids ------\n")        
+dataframe_kmedoids = kmedoids_df()
+print("\n------ End of DataFrame for K-Medoids ------\n") 
