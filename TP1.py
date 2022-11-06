@@ -32,8 +32,8 @@ from sklearn.metrics.pairwise import manhattan_distances
 # numero de c l u s t e r . On r e t i r e c e t t e i n f o r m a t i o n
 
 def create_data(name):
-    path='./artificial/'
-    databrut=arff.loadarff(open(path+name+".arff", 'r'))
+    path='./dataset_p2/'
+    databrut=(open(path+name+".txt", 'r'))
     data=[[x[0], x[1]] for x in databrut[0]]
     return data
 
@@ -42,7 +42,7 @@ def create_data(name):
 # E x t r a i r e chaque v a l e u r de f e a t u r e s pour en f a i r e une l i s t e
 # Ex pour f 0 = [ − 0 . 4 9 9 2 6 1 , −1.51369 , −1.60321 , . . . ]
 # Ex pour f 1 = [ − 0 . 0 6 1 2 3 5 6 , 0 . 2 6 5 4 4 6 , 0 . 3 6 2 0 3 9 , . . . ]
-data=create_data("xclara")
+data=create_data("x1")
 f0=[f[0] for f in data]
 f1=[f[1] for f in data]
 
