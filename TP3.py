@@ -43,7 +43,8 @@ def find_eps(min_samples, e_min, e_step, e_nb):
             max_score=silhouette_score
             best_eps=eps
             best_labels=labels
-    print("Le meilleur epsilon est :", best_eps, "avec un score de", max_score)
+    nb_clusters = len(set(best_labels)) - (1 if -1 in labels else 0)
+    print("Il y a", nb_clusters, "clusters avec le meilleur epsilon (", best_eps, ") qui a un score de", max_score)
     plt.scatter(f0, f1, c = best_labels, s=8)
     title="Resultat du clustering", best_eps
     plt.title(title)
