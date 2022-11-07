@@ -25,11 +25,32 @@ from sklearn.neighbors import NearestNeighbors
 
 
 """ Data preparation """
+examples_p1 = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
+examples_dbscan_p1 = [["triangle1",0.5,0.1,20],
+                      ["diamond9",0.08,0.005,20],
+                      ["xclara",2,0.1,25],
+                      ["donut1",0.002,0.0005,12],
+                      ["xor",0.05,0.005,10]]
+
+examples_p2 = ["x1","x2","x3","x4","zz1","zz2"]
+example_y1 = ["y1"]
+
+examples_dbscan_p2 = [["x1",10000,1000,20],
+                      ["x2",10000,1000,20],
+                      ["x3",5000,1000,20],
+                      ["x4",5000,500,30],
+                      ["zz1",1000,100,20],
+                      ["zz2",5,1,45]]
+
 def create_data(name):
     path='./artificial/'
     databrut=arff.loadarff(open(path+name+".arff", 'r'))
-    data=[[x[0], x[1]] for x in databrut[0]]
+    if len(databrut) == 1 :
+        data=[[x[0], x[1]] for x in databrut[0]]
+    elif len(databrut) == 2 :
+        data=[[x[0], x[1], x[2]] for x in databrut[0]]
     return data
+
 
 def create_data_mystere(name):
     path='./dataset-rapport/'
@@ -37,17 +58,47 @@ def create_data_mystere(name):
     data=databrut.to_numpy()
     return data
 
+def create_data_list(mylist):
+    datalist = []
+    for d in mylist:
+        datalist.append(create_data(d))
+    return datalist
 
-test=create_data("donut1")
-f0=[f[0] for f in test]
-f1=[f[1] for f in test]
+def create_data_list_dbscan(mylist):
+    datalist = []
+    for d in mylist:
+        datalist.append(create_data(d[0]))
+    return datalist
+        
+def create_data_mystere_list(mylist):
+    datalist = []
+    for d in mylist:
+        datalist.append(create_data_mystere(d))
+    return datalist
 
+def create_data_list_mystere_dbscan(mylist):
+    datalist = []
+    for d in mylist:
+        datalist.append(create_data_mystere(d[0]))
+    return datalist
+        
+datalist_p1 = create_data_list(examples_p1)
+datalist_p1_dbscan = create_data_list_dbscan(examples_dbscan_p1)
 
-"""
-plt.scatter(f0, f1, s=8)
-plt.title("Donnees initiales")
-plt.show()
-"""
+datalist_p2 = create_data_mystere_list(examples_p2)
+datalist_y1 = create_data_mystere_list(example_y1)
+
+datalist_dbscan_p2 = create_data_list_mystere_dbscan(examples_dbscan_p2)
+
+# test=create_data("dense-disk-3000")
+# f0=[f[0] for f in test]
+# f1=[f[1] for f in test]
+# f2=[f[2] for f in test]
+
+# plt.scatter(f0, f1, f2, s=8)
+# plt.title("Donnees initiales")
+# plt.show()
+
 
 """ K-Means """
 """
@@ -228,7 +279,7 @@ def hierachical(data, dataname, mode):
             plt.scatter(f0, f1, c = best_labels, s=8)
             plt.title(" Resultat du clustering agglomératif en mode Cluster avec linkage=" + l)
             plt.show()
-            print("Le meilleur k est :", best_k, "avec un score de", best_score)
+            print("(",dataname,",",l,"):","Le meilleur k est :", best_k, "avec un score de", best_score)
                 
         #comparison between linkages
         if(best_score>best_score_global):
@@ -326,151 +377,174 @@ def myhdbscan(data, dataname, min_size, max_size):
 """ Exploitation """
 
 #K-means 
-def kmeans_df(): 
+def kmeans_df(examples, datalist): 
     dataframe_kmeans = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
-    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
     
-    for e in examples : 
-        data=create_data(e)
-        f0=[f[0] for f in data]
-        f1=[f[1] for f in data]
+    for i in range(len(examples)):
+        f0=[f[0] for f in datalist[i]]
+        f1=[f[1] for f in datalist[i]]
     
         plt.scatter(f0, f1, s=8)
         plt.title("Donnees initiales")
         plt.show()
         
-        l,k,s,t = k_means_davies(data, e)
+        l,k,s,t = k_means_davies(datalist[i], examples[i])
         
-        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+        new_entry = {"Example":examples[i], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
         dataframe_kmeans = dataframe_kmeans.append(new_entry, ignore_index=True)
     return dataframe_kmeans
 
 #print("------ Running DataFrame for K-Means ------\n")
-#dataframe_kmeans = kmeans_df()
+#dataframe_kmeans = kmeans_df(examples_p1, datalist_p1)
 #print("------ End of DataFrame for K-Means ------\n") 
 
 
 #K-medoids 
-def kmedoids_df():
+def kmedoids_df(examples, datalist):
     
     dataframe_kmedoids = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
-    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
     
-    for e in examples : 
-        data=create_data(e)
-        f0=[f[0] for f in data]
-        f1=[f[1] for f in data]
+    for i in range(len(examples)):
+        f0=[f[0] for f in datalist[i]]
+        f1=[f[1] for f in datalist[i]]
     
         plt.scatter(f0, f1, s=8)
         plt.title("Donnees initiales")
         plt.show()
         
-        l,k,s,t = k_medoids(data, e)
+        l,k,s,t = k_medoids(datalist[i], examples[i])
         
-        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+        new_entry = {"Example":examples[i], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
         dataframe_kmedoids = dataframe_kmedoids.append(new_entry, ignore_index=True)
     return dataframe_kmedoids
 
 # print("------ Running DataFrame for K-Medoids ------\n")        
-# dataframe_kmedoids = kmedoids_df()
+# dataframe_kmedoids = kmedoids_df(examples_p1, datalist_p1)
 # print("\n------ End of DataFrame for K-Medoids ------\n") 
 
 
 #Agglo
 
-def agglo_df():
+def agglo_df(examples, datalist):
     
-    dataframe_agglo_dist = pd.DataFrame(columns=["Example", "Linkage", "Nb of Cluster", "Distance Treshold", "Score", "Runtime (ms)"])
-    dataframe_agglo_clust = pd.DataFrame(columns=["Example", "Linkage", "Nb of Cluster", "Score", "Runtime  (ms)"])
-    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
+    dataframe_agglo_dist = pd.DataFrame(columns=["Example", "Linkage", "Nb of Clusters", "Distance Treshold", "Score", "Runtime (ms)"])
+    dataframe_agglo_clust = pd.DataFrame(columns=["Example", "Linkage", "Nb of Clusters", "Score", "Runtime  (ms)"])
     
-    for e in examples : 
-        data=create_data(e)
-        f0=[f[0] for f in data]
-        f1=[f[1] for f in data]
+    for i in range(len(examples)):
+        f0=[f[0] for f in datalist[i]]
+        f1=[f[1] for f in datalist[i]]
     
         plt.scatter(f0, f1, s=8)
         plt.title("Donnees initiales")
         plt.show()
         
-        l,k,s,t,d,link = hierachical(data, e, 0)
-        dist_entry = {"Example":e, "Linkage":link, "Nb of Clusters":k,"Distance Treshold":d, "Score":s, "Runtime (ms)":t}
+        l,k,s,t,d,link = hierachical(datalist[i], examples[i], 0)
+        dist_entry = {"Example":examples[i], "Linkage":link, "Nb of Clusters":k,"Distance Treshold":d, "Score":s, "Runtime (ms)":t}
         dataframe_agglo_dist = dataframe_agglo_dist.append(dist_entry, ignore_index=True)
         
-        l,k,s,t,d,link = hierachical(data, e, 1)
-        clust_entry = {"Example":e, "Linkage":link, "Nb of Clusters":k, "Score":s, "Runtime":t}
+        l,k,s,t,d,link = hierachical(datalist[i], examples[i], 1)
+        clust_entry = {"Example":examples[i], "Linkage":link, "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
         dataframe_agglo_clust = dataframe_agglo_clust.append(clust_entry, ignore_index=True)
+        
     return dataframe_agglo_dist, dataframe_agglo_clust
     #return dataframe_agglo_dist
     
 # print("------ Running DataFrame for Agglo ------\n")        
-# dataframe_agglo_dist, dataframe_agglo_clust = agglo_df()
-# #dataframe_agglo_dist = agglo_df()
+# dataframe_agglo_dist, dataframe_agglo_clust = agglo_df(examples_p1, datalist_p1)
 # print("\n------ End of DataFrame for Agglo ------\n")     
     
     
 #DBSCAN  
 
-plot_k_nearest_neighbors(5, create_data("triangle1"),"triangle1")
-plot_k_nearest_neighbors(5, create_data("diamond9"),"diamond9")
-plot_k_nearest_neighbors(5, create_data("xclara"),"xclara")
-plot_k_nearest_neighbors(5, create_data("donut1"),"donut1")
-plot_k_nearest_neighbors(5, create_data("xor"),"xor")
+# Uncomment to see what we used to get our parameters for dbscan
+# plot_k_nearest_neighbors(5, create_data("triangle1"),"triangle1")
+# plot_k_nearest_neighbors(5, create_data("diamond9"),"diamond9")
+# plot_k_nearest_neighbors(5, create_data("xclara"),"xclara")
+# plot_k_nearest_neighbors(5, create_data("donut1"),"donut1")
+# plot_k_nearest_neighbors(5, create_data("xor"),"xor")
 
 
-def dbscan_df(): 
+def dbscan_df(examples_dbscan, datalist_dbscan): 
     dataframe_dbscan = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
     
     #format : [dataset, min_samples, e_min, e_step, e_nb]
-    examples_dbscan = [["triangle1",0.5,0.1,10],
-                       ["diamond9",0.08,0.005,20],
-                       ["xclara",1.5,0.1,45],
-                       ["donut1",0.002,0.0005,12],
-                       ["xor",0.04,0.005,12]]
     
     
-    for e in examples_dbscan : 
-        data=create_data(e[0])
-        f0=[f[0] for f in data]
-        f1=[f[1] for f in data]
+    for i in range(len(examples_dbscan)):
+        f0=[f[0] for f in datalist_dbscan[i]]
+        f1=[f[1] for f in datalist_dbscan[i]]
     
         plt.scatter(f0, f1, s=8)
         plt.title("Donnees initiales")
         plt.show()
         
-        l,k,s,t,eps = dbscan(data, e[0], 5, e[1], e[2], e[3])
+        l,k,s,t,eps = dbscan(datalist_dbscan[i], examples_dbscan[i][0], 11, examples_dbscan[i][1],
+                             examples_dbscan[i][2], examples_dbscan[i][3])
         
-        new_entry = {"Example":e[0], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
-        """
-        Le k ici est pas bon, il faut récupérer le bon nombre de cluster
-        """
+        new_entry = {"Example":examples_dbscan[i][0], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+
         dataframe_dbscan = dataframe_dbscan.append(new_entry, ignore_index=True)
     return dataframe_dbscan
 
-#dataframe_dbscan = dbscan_df()
+# print("------ Running DataFrame for Agglo ------\n") 
+#dataframe_dbscan = dbscan_df(examples_dbscan_p1,datalist_p1_dbscan)
+# print("\n------ End of DataFrame for Agglo ------\n") 
 
 #HDBSCAN
 
-def hdbscan_df():
+def hdbscan_df(examples, datalist):
     dataframe_hdbscan = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
-    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
     
-    for e in examples : 
-        data=create_data(e)
-        f0=[f[0] for f in data]
-        f1=[f[1] for f in data]
+    for i in range(len(examples)): 
+        f0=[f[0] for f in datalist[i]]
+        f1=[f[1] for f in datalist[i]]
     
         plt.scatter(f0, f1, s=8)
         plt.title("Donnees initiales")
         plt.show()
         
-        l,k,s,t = myhdbscan(data, e, 5, 20)
+        l,k,s,t = myhdbscan(datalist[i], examples[i], 5, 20)
         
-        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
-        """
-        Le k ici est pas bon, il faut récupérer le bon nombre de cluster
-        """
+        new_entry = {"Example":examples[i], "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+
         dataframe_hdbscan = dataframe_hdbscan.append(new_entry, ignore_index=True)
     return dataframe_hdbscan
 
-dataframe_hdbscan = hdbscan_df()
+# print("------ Running DataFrame for hdbscan ------\n") 
+# dataframe_hdbscan = hdbscan_df(examples_p1, datalist_p1)
+# print("\n------ End of DataFrame for hdbscan ------\n") 
+
+"""
+PARTIE II : Données Mystères
+"""
+print("######### PARTIE 2 : DONNEES MYSTERES #########\n")
+
+# temp = [["dense-disk-3000",0.5,0.01,10]]
+# datalist_temp = create_data_list(["dense-disk-3000"])
+# plot_k_nearest_neighbors(5, datalist_temp,temp)
+
+
+# for i in range(len(examples_p2)):
+#     plot_k_nearest_neighbors(5, datalist_p2[i],examples_p2[i])
+
+# print("------ Running DataFrame for kmeans ------\n") 
+# dataframe_kmeans = kmeans_df(temp, datalist_temp)
+# print("\n------ End of DataFrame for kmeans ------\n") 
+
+# print("------ Running DataFrame for kmedoids ------\n") 
+# dataframe_kmedoids = kmedoids_df(examples_p2, datalist_p2)
+# print("\n------ End of DataFrame for kmedoids ------\n") 
+
+# print("------ Running DataFrame for agglo ------\n") 
+# dataframe_agglo_dist, dataframe_agglo_clust = agglo_df(examples_p2, datalist_p2)
+# print("\n------ End of DataFrame for agglo ------\n")  
+
+# print("------ Running DataFrame for dbscan ------\n") 
+# dataframe_dbscan = dbscan_df(temp, datalist_temp)
+# print("\n------ End of DataFrame for dbscan ------\n")
+
+# print("------ Running DataFrame for hdbscan ------\n") 
+# dataframe_hdbscan = hdbscan_df(examples_p2, datalist_p2)
+# print("\n------ End of DataFrame for hdbscan ------\n") 
+
+#create_data_mystere
