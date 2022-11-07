@@ -14,6 +14,7 @@ import time
 import kmedoids
 import scipy.cluster.hierarchy as shc
 import pandas as pd
+import hdbscan
 
 from scipy.io import arff
 from sklearn import metrics
@@ -56,6 +57,8 @@ def k_means_davies(data, dataname):
     best_labels=[]
     min_davies_score = 9999
     min_davies_k = 0
+    best_runtime = 0
+    
     for k in range(2,10):
         tps1=time.time()
         model=cluster.KMeans(n_clusters=k, init='k-means++')
@@ -68,6 +71,7 @@ def k_means_davies(data, dataname):
             min_davies_score=davies_score
             min_davies_k=k
             best_labels = labels
+            best_runtime = runtime
         #iteration = model.n_iter_
         
         #print("nb clusters=",k,", nb iter =" , iteration, "score=", davies_score,", runtime = ", runtime, " ms")
@@ -78,7 +82,7 @@ def k_means_davies(data, dataname):
     plt.title("Donnees apres clustering Kmeans")
     plt.show()    
     print(dataname," : ","Le meilleur nombre de clusters est :", min_davies_k, "avec un score de", min_davies_score)
-    return best_labels, min_davies_k, min_davies_score, runtime
+    return best_labels, min_davies_k, min_davies_score, best_runtime
 
 
 """ K-Medoids """
@@ -90,6 +94,8 @@ def k_medoids(data, dataname, dist="euc"):
     best_score = -1
     best_k = 0
     best_labels = []
+    best_runtime = 0
+    
     for k in range(2,10):
         tps1 = time.time()
         
@@ -109,6 +115,7 @@ def k_medoids(data, dataname, dist="euc"):
             best_score = silhouette_score
             best_k = k
             best_labels = labels_kmed
+            best_runtime = runtime
         
         #print(" nb clusters=" ,k , " , nb iter=" , iter_kmed , "score euclidean= ", silhouette_score, " runtime = " , round ((tps2 - tps1) * 1000,2), " ms")
     
@@ -118,7 +125,7 @@ def k_medoids(data, dataname, dist="euc"):
     plt.title(" Donnees apres clustering KMedoids " )
     plt.show()
     print(dataname," : ","Le meilleur nombre de clusters est :", best_k, "avec un score de", best_score)
-    return best_labels, best_k, best_score, runtime
+    return best_labels, best_k, best_score, best_runtime
 
 """ K-Means VS K-Medoids Comparison """
 def calc_rand_score(data, k):
@@ -159,7 +166,7 @@ def hierachical(data, dataname, mode):
     best_dist = 0
     best_score = -1
     best_k = 0
-    runtime = 0
+    best_runtime = 0
     
     best_labels_global = []
     best_score_global = -1
@@ -191,6 +198,7 @@ def hierachical(data, dataname, mode):
                         best_dist=dist
                         best_k=k
                         best_labels = labels
+                        best_runtime = runtime
             
             plt.scatter(f0, f1, c = best_labels, s=8)
             plt.title(" Resultat du clustering agglomératif en mode Distance avec linkage=" + l)
@@ -215,6 +223,7 @@ def hierachical(data, dataname, mode):
                     best_score=silhouette_score
                     best_k=k                
                     best_labels = labels
+                    best_runtime = runtime
                 
             plt.scatter(f0, f1, c = best_labels, s=8)
             plt.title(" Resultat du clustering agglomératif en mode Cluster avec linkage=" + l)
@@ -227,7 +236,7 @@ def hierachical(data, dataname, mode):
             best_dist_global=best_dist
             best_k_global=best_k
             best_labels_global = best_labels
-            runtime_global = runtime
+            runtime_global = best_runtime
             best_linkage = l
         
     return best_labels_global, best_k_global, best_score_global, runtime_global, best_dist_global, best_linkage
@@ -253,7 +262,7 @@ def dbscan(data, dataname, min_samples, e_min, e_step, e_nb):
     best_eps = 0
     best_labels=[]
     best_k = 0
-    runtime = 0
+    best_runtime = 0
     
     for e in range(0, e_nb):
         eps=e*e_step+e_min
@@ -269,7 +278,8 @@ def dbscan(data, dataname, min_samples, e_min, e_step, e_nb):
             max_score=silhouette_score
             best_eps=eps
             best_labels=labels
-            best_k = model.n_features_in_
+            best_runtime = runtime
+            best_k = len(set(best_labels)) - (1 if -1 in best_labels else 0)
             
     print(dataname," : ", "Le meilleur epsilon est :", best_eps,"avec ", best_k," clusters et un score de", max_score)
     f0=[f[0] for f in data]
@@ -278,9 +288,41 @@ def dbscan(data, dataname, min_samples, e_min, e_step, e_nb):
     title="Resultat du clustering avec DBSCAN", best_eps
     plt.title(title)
     plt.show()
-    return best_labels, best_k, max_score, runtime, best_eps
+    return best_labels, best_k, max_score, best_runtime, best_eps
     
-     
+""" HDBSCAN """
+
+def myhdbscan(data, dataname, min_size, max_size):
+    max_score = -1
+    best_size = 0
+    best_labels=[]
+    best_runtime = 0
+    best_k = 0
+    
+    for size in range(min_size, max_size):
+        tps1=time.time()
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=size)
+        cluster_labels = clusterer.fit_predict(data)
+        tps2=time.time()
+        runtime = round ((tps2-tps1) * 1000, 2)
+        silhouette_score= metrics.silhouette_score(data, cluster_labels, metric='euclidean')
+        
+        if(silhouette_score>max_score):
+            max_score=silhouette_score
+            best_size=size
+            best_labels=cluster_labels
+            best_runtime = runtime
+            best_k = len(set(best_labels)) - (1 if -1 in best_labels else 0)
+            
+    print(dataname," : ", "La meilleure taille de cluster min est :", best_size,"avec ", best_k, " clusters et un score de", max_score)
+    f0=[f[0] for f in data]
+    f1=[f[1] for f in data]
+    plt.scatter(f0, f1, c = best_labels, s=8)
+    title="Resultat du clustering avec HDBSCAN"
+    plt.title(title)
+    plt.show()
+    return best_labels, best_k, max_score, best_runtime
+
 """ Exploitation """
 
 #K-means 
@@ -355,7 +397,7 @@ def agglo_df():
         dist_entry = {"Example":e, "Linkage":link, "Nb of Clusters":k,"Distance Treshold":d, "Score":s, "Runtime (ms)":t}
         dataframe_agglo_dist = dataframe_agglo_dist.append(dist_entry, ignore_index=True)
         
-        l,k,s,t,d,link = hierachical(data, 1)
+        l,k,s,t,d,link = hierachical(data, e, 1)
         clust_entry = {"Example":e, "Linkage":link, "Nb of Clusters":k, "Score":s, "Runtime":t}
         dataframe_agglo_clust = dataframe_agglo_clust.append(clust_entry, ignore_index=True)
     return dataframe_agglo_dist, dataframe_agglo_clust
@@ -381,10 +423,10 @@ def dbscan_df():
     
     #format : [dataset, min_samples, e_min, e_step, e_nb]
     examples_dbscan = [["triangle1",0.5,0.1,10],
-                       ["diamond9",0.08,0.01,6],
-                       ["xclara",1.5,0.1,10],
-                       ["donut1",0.002,0.0005,4],
-                       ["xor",0.04,0.005,8]]
+                       ["diamond9",0.08,0.005,20],
+                       ["xclara",1.5,0.1,45],
+                       ["donut1",0.002,0.0005,12],
+                       ["xor",0.04,0.005,12]]
     
     
     for e in examples_dbscan : 
@@ -405,4 +447,30 @@ def dbscan_df():
         dataframe_dbscan = dataframe_dbscan.append(new_entry, ignore_index=True)
     return dataframe_dbscan
 
-dataframe_dbscan = dbscan_df()
+#dataframe_dbscan = dbscan_df()
+
+#HDBSCAN
+
+def hdbscan_df():
+    dataframe_hdbscan = pd.DataFrame(columns=["Example", "Nb of Clusters", "Score", "Runtime (ms)"])
+    examples = ["triangle1", "diamond9", "xclara", "donut1", "xor"]
+    
+    for e in examples : 
+        data=create_data(e)
+        f0=[f[0] for f in data]
+        f1=[f[1] for f in data]
+    
+        plt.scatter(f0, f1, s=8)
+        plt.title("Donnees initiales")
+        plt.show()
+        
+        l,k,s,t = myhdbscan(data, e, 5, 20)
+        
+        new_entry = {"Example":e, "Nb of Clusters":k, "Score":s, "Runtime (ms)":t}
+        """
+        Le k ici est pas bon, il faut récupérer le bon nombre de cluster
+        """
+        dataframe_hdbscan = dataframe_hdbscan.append(new_entry, ignore_index=True)
+    return dataframe_hdbscan
+
+dataframe_hdbscan = hdbscan_df()
